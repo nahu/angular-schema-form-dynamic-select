@@ -147,7 +147,30 @@ angular.module('schemaForm').config(
         };
     });
 
-angular.module('schemaForm').controller('dynamicSelectController', ['$scope', '$http', '$timeout', function ($scope, $http, $timeout) {
+
+angular.module('schemaForm')
+  .directive("dynamicSelect", dynamicSelectDirective);
+
+function dynamicSelectDirective() {
+  var directive = {
+    restrict: 'A',
+    controllerAs: 'vm',
+    bindToController: true,
+    link: linkFunc,
+    controller: dynamicSelectController,
+  };
+
+  function linkFunc(scope, elem, attr) {
+  }
+
+  return directive;
+}
+
+angular.module('schemaForm').controller('dynamicSelectController', dynamicSelectController);
+
+dynamicSelectController.$inject =  ['$scope', '$http', '$timeout', '$q'];
+
+function dynamicSelectController($scope, $http, $timeout, $q) {
 
     if (!$scope.form.options) {
         $scope.form.options = {};
@@ -223,10 +246,10 @@ angular.module('schemaForm').controller('dynamicSelectController', ['$scope', '$
         }
 
         // The ui-selects needs to be reinitialized (UI select sets the internalModel and externalModel.
-        if ($scope.internalModel) {
-            console.log("Call uiMultiSelectInitInternalModel");
-            $scope.uiMultiSelectInitInternalModel($scope.externalModel);
-        }
+        // if ($scope.internalModel) {
+        //     console.log("Call uiMultiSelectInitInternalModel");
+        //     $scope.uiMultiSelectInitInternalModel($scope.externalModel);
+        // }
     };
 
     $scope.clone = function (obj) {
@@ -284,7 +307,13 @@ angular.module('schemaForm').controller('dynamicSelectController', ['$scope', '$
         form.titleMap.pop();
     };
 
-
+    function sameSearchParams(params1, params2) {
+      return ((params1.search === params2.search) &&
+        angular.isArray(params1.exclude) &&
+        angular.isArray(params2.exclude) &&
+        (params1.exclude.length === params2.exclude.length));
+    }
+            
     $scope.populateTitleMap = function (form, search) {
 
         if (form.schema && "enum" in form.schema) {
@@ -305,7 +334,10 @@ angular.module('schemaForm').controller('dynamicSelectController', ['$scope', '$
             console.log("callback items: ", form.titleMap);
         }
         else if (form.options.asyncCallback) {
-            return $scope.getCallback(form.options.asyncCallback)(form.options, search).then(
+          var currentSearchParams = {search: search, exclude: $scope.model[form.key]}
+          if (!$scope.searchParams || !sameSearchParams(currentSearchParams, $scope.searchParams)) {
+            $scope.searchParams = currentSearchParams;
+            $scope.getCallback(form.options.asyncCallback)(form.options, search, $scope.model[form.key]).then(
                 function (_data) {
                     // In order to work with both $http and generic promises
                     _data = _data.data || _data;
@@ -316,11 +348,12 @@ angular.module('schemaForm').controller('dynamicSelectController', ['$scope', '$
                     alert("Loading select items failed(Options: '" + String(form.options) +
                     "\nError: " + status);
                 });
+          }
         }
         else if (form.options.httpPost) {
             var finalOptions = $scope.getOptions(form.options, search);
 
-            return $http.post(finalOptions.httpPost.url, finalOptions.httpPost.parameter).then(
+            $http.post(finalOptions.httpPost.url, finalOptions.httpPost.parameter).then(
                 function (_data) {
 
                     $scope.finalizeTitleMap(form, _data.data, finalOptions);
@@ -333,7 +366,7 @@ angular.module('schemaForm').controller('dynamicSelectController', ['$scope', '$
         }
         else if (form.options.httpGet) {
             var finalOptions = $scope.getOptions(form.options, search);
-            return $http.get(finalOptions.httpGet.url, finalOptions.httpGet.parameter).then(
+            $http.get(finalOptions.httpGet.url, finalOptions.httpGet.parameter).then(
                 function (data) {
                     $scope.finalizeTitleMap(form, data.data, finalOptions);
                     console.log('httpGet items', form.titleMap);
@@ -352,27 +385,48 @@ angular.module('schemaForm').controller('dynamicSelectController', ['$scope', '$
                 return {"value": $scope.form.titleMap[i].value, "name": $scope.form.titleMap[i].name}
             }
         }
-
+        return undefined;
     };
 
-    $scope.uiMultiSelectInitInternalModel = function(supplied_model)
-    {
-
-
+    $scope.uiMultiSelectInitInternalModel = function(supplied_model) {
         console.log("$scope.externalModel: Key: " +$scope.form.key.toString() + " Model: " + supplied_model.toString());
         $scope.externalModel = supplied_model;
         $scope.internalModel = [];
-        if ($scope.form.titleMap) {
-            if (supplied_model !== undefined && angular.isArray(supplied_model)){
-                supplied_model.forEach(function (value) {
-                        $scope.internalModel.push($scope.find_in_titleMap(value));
-                    }
-                )
-            }
+        
+        if (supplied_model !== undefined && angular.isArray(supplied_model) && !$scope.init) {
+            if ($scope.form.options.asyncInitCallback && !$scope.init) {
+              $scope.init = true;
+
+              $scope.getCallback($scope.form.options.asyncInitCallback)(supplied_model).then(
+                function (_data) {
+                    // In order to work with both $http and generic promises
+                    _data = _data.data || _data;
+                    $scope.form.titleMap = [];
+                    _data.forEach(function (value) {
+                      var entry = {"value": value[$scope.form.options.map.valueProperty],
+                                   "name": value[$scope.form.options.map.nameProperty]
+                                    }
+                      $scope.internalModel.push(entry);
+                      $scope.form.titleMap.push(entry);
+                    });
+
+                    console.log('init items', _data);
+                },
+                function (data, status) {
+                    console.log("Init items failed(Options: '" + String(form.options) +
+                    "\nError: " + status);
+                });
+            } 
+            
         }
     };
 
-}]);
+    if (angular.isArray($scope.model[$scope.form.key]) && $scope.model[$scope.form.key].length > 1) {
+      console.log("init with " + $scope.model[$scope.form.key]);
+      $scope.uiMultiSelectInitInternalModel($scope.model[$scope.form.key]);
+    }
+
+}
 
 angular.module('schemaForm').filter('selectFilter', [function ($filter) {
     return function (inputArray, controller, localModel, strLocalModel) {
