@@ -413,8 +413,7 @@ function dynamicSelectController($scope, $http, $timeout, $q) {
                     //console.log('init items', _data);
                 },
                 function (data, status) {
-                    //console.log("Init items failed(Options: '" + String(form.options) +
-                    "\nError: " + status);
+                    //console.log("Init items failed(Options: '" + String(form.options) + "\nError: " + status);
                 });
             } 
             
