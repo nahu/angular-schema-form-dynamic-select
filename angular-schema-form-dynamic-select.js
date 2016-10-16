@@ -316,7 +316,20 @@ function dynamicSelectController($scope, $http, $timeout, $q) {
             
     $scope.populateTitleMap = function (form, search) {
 
-        if (form.schema && "enum" in form.schema) {
+        
+        if (form.options && form.options.customTitleMap) {
+            form.titleMap = [];
+            form.options.customTitleMap.forEach(function (item) {
+                var entry = {"value": item[$scope.form.options.map.valueProperty],
+                           "name": item[$scope.form.options.map.nameProperty]
+                            }
+                $scope.form.titleMap.push(entry);
+            });
+            if ($scope.model[$scope.form.key] && $scope.select_model.selected === undefined) {
+              $scope.select_model.selected = $scope.find_in_titleMap($scope.model[$scope.form.key]);
+            }          
+        }
+        else if (form.schema && "enum" in form.schema) {
             form.titleMap = [];
             form.schema.enum.forEach(function (item) {
                     form.titleMap.push({"value": item, "name": item})
@@ -380,12 +393,14 @@ function dynamicSelectController($scope, $http, $timeout, $q) {
 
 
     $scope.find_in_titleMap = function (value) {
+      if ($scope.form.titleMap) {
         for (i = 0; i < $scope.form.titleMap.length; i++) {
             if ($scope.form.titleMap[i].value == value) {
                 return {"value": $scope.form.titleMap[i].value, "name": $scope.form.titleMap[i].name}
             }
         }
-        return undefined;
+      }
+      return undefined;
     };
 
     $scope.uiMultiSelectInitInternalModel = function(supplied_model) {
@@ -423,8 +438,9 @@ function dynamicSelectController($scope, $http, $timeout, $q) {
     if (angular.isArray($scope.model[$scope.form.key]) && $scope.model[$scope.form.key].length > 1) {
       //console.log("init with " + $scope.model[$scope.form.key]);
       $scope.uiMultiSelectInitInternalModel($scope.model[$scope.form.key]);
+    } else if ($scope.model[$scope.form.key] && $scope.select_model.selected === undefined) {
+      $scope.select_model.selected = $scope.find_in_titleMap($scope.model[$scope.form.key]);
     }
-
 }
 
 angular.module('schemaForm').filter('selectFilter', [function ($filter) {
