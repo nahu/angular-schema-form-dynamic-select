@@ -307,16 +307,31 @@ function dynamicSelectController($scope, $http, $timeout, $q) {
         form.titleMap.pop();
     };
 
-    function sameSearchParams(params1, params2) {
-      return ((params1.search === params2.search) &&
-        angular.isArray(params1.exclude) &&
-        angular.isArray(params2.exclude) &&
-        (params1.exclude.length === params2.exclude.length));
-    }
-            
-    $scope.populateTitleMap = function (form, search) {
+    function sameSearchParams(params1, params2, multiple) {
+      var exclude;
+      if (multiple)  {
+        exclude = (angular.isArray(params1.exclude) &&
+                angular.isArray(params2.exclude) &&
+                (params1.exclude.length === params2.exclude.length));
+      } else {
+        exclude = (params1.exclude === params2.exclude);
+      }
 
-        
+      return ((params1.search === params2.search) && exclude);
+    }
+         
+    function getValue(model, multiple) {
+      var exclude = model;
+      if (!multiple && typeof exclude === typeof {} && exclude.id) {
+        exclude = exclude.id;
+      }
+      return exclude;
+    }
+
+    $scope.populateTitleMap = function (form, search) {
+        console.log(search);
+        var exclude = getValue($scope.model[form.key], form.options.multiple);
+
         if (form.options && form.options.customTitleMap) {
             form.titleMap = [];
             form.options.customTitleMap.forEach(function (item) {
@@ -347,10 +362,11 @@ function dynamicSelectController($scope, $http, $timeout, $q) {
             //console.log("callback items: ", form.titleMap);
         }
         else if (form.options.asyncCallback) {
-          var currentSearchParams = {search: search, exclude: $scope.model[form.key]}
-          if (!$scope.searchParams || !sameSearchParams(currentSearchParams, $scope.searchParams)) {
+
+          var currentSearchParams = {search: search, exclude: exclude}
+          if (!$scope.searchParams || !sameSearchParams(currentSearchParams, $scope.searchParams, form.options.multiple)) {
             $scope.searchParams = currentSearchParams;
-            $scope.getCallback(form.options.asyncCallback)(form.options, search, $scope.model[form.key]).then(
+            $scope.getCallback(form.options.asyncCallback)(form.options, search, exclude).then(
                 function (_data) {
                     // In order to work with both $http and generic promises
                     _data = _data.data || _data;
@@ -435,11 +451,50 @@ function dynamicSelectController($scope, $http, $timeout, $q) {
         }
     };
 
+    $scope.uiSelectInitInternalModel = function(supplied_model) {
+        //console.log("$scope.externalModel: Key: " +$scope.form.key.toString() + " Model: " + supplied_model.toString());
+        
+        var exclude = getValue($scope.model[$scope.form.key], $scope.form.options.multiple);
+        $scope.externalModel = exclude;
+
+
+        if (exclude !== undefined && !$scope.init) {
+            if ($scope.form.options.asyncInitCallback && !$scope.init) {
+              $scope.init = true;
+
+              $scope.getCallback($scope.form.options.asyncInitCallback)(exclude).then(
+                function (_data) {
+                    // In order to work with both $http and generic promises
+                    _data = _data.data || _data;
+                    $scope.form.titleMap = [];
+                    _data.forEach(function (value) {
+                      var entry = {"value": value[$scope.form.options.map.valueProperty],
+                                   "name": value[$scope.form.options.map.nameProperty]
+                                    }
+                      $scope.internalModel = entry;
+                      $scope.form.titleMap.push(entry);
+                      $scope.select_model.selected = entry;
+                      $scope.model[$scope.form.key] = entry.value;
+                    });
+
+                    //console.log('init items', _data);
+                },
+                function (data, status) {
+                    console.log("Init items failed(Options: '" + String(form.options) + "\nError: " + status);
+                });
+            } 
+            
+        }
+    };
+
     if (angular.isArray($scope.model[$scope.form.key]) && $scope.model[$scope.form.key].length > 1) {
       //console.log("init with " + $scope.model[$scope.form.key]);
       $scope.uiMultiSelectInitInternalModel($scope.model[$scope.form.key]);
+    } else if ($scope.form.options.asyncInitCallback && !angular.isArray($scope.model[$scope.form.key])) {
+      $scope.uiSelectInitInternalModel($scope.model[$scope.form.key]);
     } else if ($scope.model[$scope.form.key] && $scope.select_model.selected === undefined) {
-      $scope.select_model.selected = $scope.find_in_titleMap($scope.model[$scope.form.key]);
+      var exclude = getValue($scope.model[$scope.form.key], $scope.form.options.multiple);
+      $scope.select_model.selected = $scope.find_in_titleMap(exclude);
     }
 }
 
