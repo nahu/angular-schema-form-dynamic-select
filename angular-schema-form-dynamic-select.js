@@ -335,8 +335,15 @@ function dynamicSelectController($scope, $http, $timeout, $q) {
         if (form.options && form.options.customTitleMap) {
             form.titleMap = [];
             form.options.customTitleMap.forEach(function (item) {
-                var entry = {"value": item[$scope.form.options.map.valueProperty],
-                           "name": item[$scope.form.options.map.nameProperty]
+              var name;
+              if (Array.isArray($scope.form.options.map.nameProperty)) {
+                 name = item[$scope.form.options.map.nameProperty[0]]
+                   + " (" + item[$scope.form.options.map.nameProperty[1]]+ ")";
+              } else {
+                name = item[$scope.form.options.map.nameProperty];
+              }
+              var entry = {"value": item[$scope.form.options.map.valueProperty],
+                           "name": name
                             }
                 $scope.form.titleMap.push(entry);
             });
@@ -434,8 +441,15 @@ function dynamicSelectController($scope, $http, $timeout, $q) {
                     _data = _data.data || _data;
                     $scope.form.titleMap = [];
                     _data.forEach(function (value) {
+                      var name;
+                      if (Array.isArray($scope.form.options.map.nameProperty)) {
+                         name = value[$scope.form.options.map.nameProperty[0]]
+                           + " (" + value[$scope.form.options.map.nameProperty[1]]+ ")";
+                      } else {
+                        name = value[$scope.form.options.map.nameProperty];
+                      }
                       var entry = {"value": value[$scope.form.options.map.valueProperty],
-                                   "name": value[$scope.form.options.map.nameProperty]
+                                   "name": name
                                     }
                       $scope.internalModel.push(entry);
                       $scope.form.titleMap.push(entry);
@@ -468,8 +482,15 @@ function dynamicSelectController($scope, $http, $timeout, $q) {
                     _data = _data.data || _data;
                     $scope.form.titleMap = [];
                     _data.forEach(function (value) {
+                      var name;
+                      if (Array.isArray($scope.form.options.map.nameProperty)) {
+                         name = value[$scope.form.options.map.nameProperty[0]]
+                           + " (" + value[$scope.form.options.map.nameProperty[1]]+ ")";
+                      } else {
+                        name = value[$scope.form.options.map.nameProperty];
+                      }
                       var entry = {"value": value[$scope.form.options.map.valueProperty],
-                                   "name": value[$scope.form.options.map.nameProperty]
+                                   "name": name
                                     }
                       $scope.internalModel = entry;
                       $scope.form.titleMap.push(entry);
@@ -487,7 +508,7 @@ function dynamicSelectController($scope, $http, $timeout, $q) {
         }
     };
 
-    if (angular.isArray($scope.model[$scope.form.key]) && $scope.model[$scope.form.key].length > 1) {
+    if (angular.isArray($scope.model[$scope.form.key]) && $scope.model[$scope.form.key].length >= 1) {
       //console.log("init with " + $scope.model[$scope.form.key]);
       $scope.uiMultiSelectInitInternalModel($scope.model[$scope.form.key]);
     } else if ($scope.form.options.asyncInitCallback && !angular.isArray($scope.model[$scope.form.key])) {
@@ -512,7 +533,7 @@ angular.module('schemaForm').filter('selectFilter', [function ($filter) {
 
 
 
-        //console.log("----- In filtering for " + controller.form.key + "(" + controller.form.title +"), model value: " + JSON.stringify( localModel) + "----");
+        //console.log("----- In filtering for " + controller.form.key + " (" + controller.form.title +"), model value: " + JSON.stringify( localModel) + "----");
         //console.log("Filter:" + controller.form.options.filter);
         if (!controller.filteringInitialized) {
             //console.log("Initialize filter");
